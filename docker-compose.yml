@@ -1,0 +1,166 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: saleos-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - saleos-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: saleos-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - saleos-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: saleos-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - saleos-net
+
+  saleos-core:
+    build:
+      context: ./core/backend
+      dockerfile: Dockerfile
+    container_name: saleos-core
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    volumes:
+      - ./core/backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - saleos-net
+
+  saleos-telegram:
+    build:
+      context: ./telegram/backend
+      dockerfile: Dockerfile
+    container_name: saleos-telegram
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    env_file: .env
+    volumes:
+      - ./telegram/backend:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      saleos-core:
+        condition: service_healthy
+    networks:
+      - saleos-net
+
+  saleos-tiktok:
+    build:
+      context: ./tiktok/backend
+      dockerfile: Dockerfile
+    container_name: saleos-tiktok
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+    env_file: .env
+    volumes:
+      - ./tiktok/backend:/app
+    ports:
+      - "8002:8002"
+    networks:
+      - saleos-net
+
+  saleos-instagram:
+    build:
+      context: ./instagram/backend
+      dockerfile: Dockerfile
+    container_name: saleos-instagram
+    command: uvicorn main:app --host 0.0.0.0 --port 8003 --reload
+    env_file: .env
+    volumes:
+      - ./instagram/backend:/app
+    ports:
+      - "8003:8003"
+    networks:
+      - saleos-net
+
+  saleos-facebook:
+    build:
+      context: ./facebook/backend
+      dockerfile: Dockerfile
+    container_name: saleos-facebook
+    command: uvicorn main:app --host 0.0.0.0 --port 8004 --reload
+    env_file: .env
+    volumes:
+      - ./facebook/backend:/app
+    ports:
+      - "8004:8004"
+    networks:
+      - saleos-net
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: saleos-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - saleos-core
+      - saleos-telegram
+      - saleos-tiktok
+      - saleos-instagram
+      - saleos-facebook
+    networks:
+      - saleos-net
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+
+networks:
+  saleos-net:
+    external: true

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($body = '{\"email\":\"admin@habesha.com\",\"password\":\"admin1234\"}'; $temp = New-TemporaryFile; Set-Content $temp $body -Encoding ascii; $loginJson = curl.exe -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" --data-binary \"@$temp\"; Remove-Item $temp; $token = \\($loginJson | ConvertFrom-Json\\).access_token; Write-Output \"=== payment-accounts \\(empty\\) ===\"; curl.exe -s http://localhost:8000/api/v1/core/payment-accounts/ -H \"Authorization: Bearer $token\"; Write-Output \"\"; Write-Output \"=== telegram-config \\(none yet\\) ===\"; curl.exe -s http://localhost:8000/api/v1/core/telegram-config/ -H \"Authorization: Bearer $token\"; Write-Output \"\")"
+    ]
+  }
+}
