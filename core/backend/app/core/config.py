@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET_OCR: str = "ocr-receipts"
     MINIO_BUCKET_MEDIA: str = "merchant-media"
     MINIO_BUCKET_RECEIPTS: str = "payment-receipts"
+    MINIO_BUCKET_KNOWLEDGE: str = "merchant-knowledge"
     MINIO_USE_SSL: bool = False
 
     # Microservice URLs

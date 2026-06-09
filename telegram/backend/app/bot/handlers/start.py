@@ -77,9 +77,12 @@ async def _start_buy_flow(
     message: Message, merchant: BotMerchantContext, product_id: UUID
 ) -> None:
     """DM the customer with bank info + ask for a payment screenshot.
-    Sets a Redis flag so the next photo in this DM gets attached to an order."""
+    Sets a Redis flag so the next photo in this DM gets attached to an order.
+
+    For SERVICE_INQUIRY merchants we skip the payment flow entirely and just
+    say hello — the customer is here to discuss, not to pay upfront."""
     # Pre-flight: product must exist + have a price.
-    title = "this product"
+    title = "this offering"
     price_str = None
     try:
         ctx = await CoreClient().get_product_agent_context(product_id)
@@ -95,6 +98,14 @@ async def _start_buy_flow(
             product_id=str(product_id),
             error=str(exc),
         )
+
+    if merchant.business_mode == "SERVICE_INQUIRY":
+        await message.answer(
+            f"👋 Hi! Thanks for your interest in *{title}*.\n\n"
+            f"Tell me a bit about what you're looking for and we'll take it from there.",
+            parse_mode="Markdown",
+        )
+        return
 
     # Persist buy intent so the receipt handler picks the right product.
     try:

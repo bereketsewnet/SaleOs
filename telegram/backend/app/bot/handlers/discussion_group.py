@@ -134,6 +134,32 @@ def _build_buy_link(merchant: BotMerchantContext, product_id: UUID | None) -> st
     return f"https://t.me/{username}?start={payload}"
 
 
+def _service_inquiry_reply(merchant: BotMerchantContext) -> str:
+    """For SERVICE_INQUIRY merchants we don't push payment info on buy intent —
+    we share contact details and invite the customer to DM/call. The bot also
+    keeps a DM link so the customer can simply tap-to-chat with the bot."""
+    contacts = merchant.dm_contacts or []
+    tg_username = next(
+        (c for c in contacts if c.get("kind") == "TELEGRAM_USERNAME"), None
+    )
+    phone = next((c for c in contacts if c.get("kind") == "PHONE"), None)
+
+    lines: list[str] = ["Thanks for reaching out — let's chat privately."]
+    parts: list[str] = []
+    if tg_username and tg_username.get("value"):
+        handle = tg_username["value"].lstrip("@")
+        parts.append(f"Telegram: https://t.me/{handle}")
+    if phone and phone.get("value"):
+        parts.append(f"Phone: {phone['value']}")
+    if merchant.bot_username:
+        parts.append(f"Or tap here to message me directly 👉 https://t.me/{merchant.bot_username}")
+    if parts:
+        lines.append("\n".join(parts))
+    else:
+        lines.append("Please DM us to discuss your needs.")
+    return "\n\n".join(lines)
+
+
 def register(router: Router) -> None:
     @router.message(F.chat.type.in_({"supergroup", "group"}), F.forward_from_chat)
     async def on_thread_root_forward(
@@ -188,19 +214,30 @@ def register(router: Router) -> None:
         text = (message.text or message.caption or "").strip()
         product_id = await _resolve_product_for_thread(message, merchant)
 
-        # === Buy intent → redirect to DM, never share bank info in public ===
+        # === Buy/inquiry intent: behavior depends on business mode ===
         if _customer_shows_buy_intent(text):
-            link = _build_buy_link(merchant, product_id)
-            await message.reply(
-                "Great — let's keep your payment details private. "
-                f"Tap here to continue in our private chat 👉 {link}",
-                disable_web_page_preview=True,
-            )
-            logger.info(
-                "buy_intent_redirected_to_dm",
-                merchant_id=str(merchant.merchant_id),
-                product_id=str(product_id) if product_id else None,
-            )
+            if merchant.business_mode == "SERVICE_INQUIRY":
+                await message.reply(
+                    _service_inquiry_reply(merchant),
+                    disable_web_page_preview=True,
+                )
+                logger.info(
+                    "service_inquiry_redirected",
+                    merchant_id=str(merchant.merchant_id),
+                )
+            else:
+                # PRODUCT_SALES → bank info via DM deep link
+                link = _build_buy_link(merchant, product_id)
+                await message.reply(
+                    "Great — let's keep your payment details private. "
+                    f"Tap here to continue in our private chat 👉 {link}",
+                    disable_web_page_preview=True,
+                )
+                logger.info(
+                    "buy_intent_redirected_to_dm",
+                    merchant_id=str(merchant.merchant_id),
+                    product_id=str(product_id) if product_id else None,
+                )
             return
 
         # === Otherwise: AI answers product questions ===
@@ -229,11 +266,24 @@ def register(router: Router) -> None:
                 error=str(exc),
             )
 
+        knowledge_chunks: list[str] = []
+        try:
+            knowledge_chunks = await CoreClient().query_knowledge_base(
+                merchant.merchant_id, query=text, top_k=4
+            )
+        except Exception as exc:
+            logger.warning(
+                "comment_kb_fetch_failed",
+                merchant_id=str(merchant.merchant_id),
+                error=str(exc),
+            )
+
         reply = await generate_reply(
             merchant=merchant,
             customer_message=text,
             product_ctx=product_ctx,
             surface="COMMENT",
             catalog=catalog,
+            knowledge_chunks=knowledge_chunks,
         )
         await message.reply(reply)

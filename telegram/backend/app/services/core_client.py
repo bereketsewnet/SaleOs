@@ -110,6 +110,21 @@ class CoreClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def query_knowledge_base(
+        self, merchant_id: UUID, *, query: str, top_k: int = 4
+    ) -> list[str]:
+        url = f"{self._base}/api/v1/internal/knowledge-base/query"
+        payload = {
+            "merchant_id": str(merchant_id),
+            "query": query,
+            "top_k": top_k,
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, headers=self._headers, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            return list(data.get("chunks") or [])
+
     async def get_product_for_channel_message(
         self, merchant_id: UUID, channel_id: int, message_id: int
     ) -> UUID | None:

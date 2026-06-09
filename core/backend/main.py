@@ -11,6 +11,7 @@ from app.api.v1 import (
     merchant_profile,
     products,
     inventory,
+    knowledge_base,
     orders,
     internal,
     payment_accounts,
@@ -58,6 +59,11 @@ app.include_router(
 app.include_router(products.router, prefix="/api/v1/core/products", tags=["products"])
 app.include_router(inventory.router, prefix="/api/v1/core/inventory", tags=["inventory"])
 app.include_router(orders.router, prefix="/api/v1/core/orders", tags=["orders"])
+app.include_router(
+    knowledge_base.router,
+    prefix="/api/v1/core/knowledge-base",
+    tags=["knowledge-base"],
+)
 app.include_router(
     payment_accounts.router,
     prefix="/api/v1/core/payment-accounts",

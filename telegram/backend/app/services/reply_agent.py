@@ -111,8 +111,11 @@ def _build_system_prompt(
     product_ctx: ProductContext | None,
     surface: Surface,
     catalog: list[dict] | None = None,
+    knowledge_chunks: list[str] | None = None,
 ) -> str:
     parts: list[str] = []
+    mode = getattr(merchant, "business_mode", "PRODUCT_SALES") or "PRODUCT_SALES"
+    is_service = mode == "SERVICE_INQUIRY"
 
     # 1. Brand identity
     parts.append("=== BRAND ===")
@@ -122,6 +125,11 @@ def _build_system_prompt(
         parts.append(f"Type: {merchant.business_type}")
     if merchant.business_description:
         parts.append(f"About: {merchant.business_description}")
+    if is_service:
+        parts.append(
+            "Mode: SERVICE / CONSULTING. We do not sell ready-made goods — we sell time, "
+            "advice, or services that need a conversation before a price is agreed."
+        )
     if merchant.system_prompt:
         parts.append(f"Tone rules:\n{merchant.system_prompt}")
 
@@ -182,6 +190,22 @@ def _build_system_prompt(
         )
     )
 
+    # 4c. Knowledge-base context (uploaded company docs / brochures / FAQs)
+    if knowledge_chunks:
+        parts.append("\n=== KNOWLEDGE BASE (from the merchant's uploaded docs) ===")
+        parts.append(
+            "The merchant has uploaded company documents. Use the snippets below as "
+            "AUTHORITATIVE source of truth for questions about company info, services, "
+            "policies, terms, FAQs, pricing rules, and anything not in the catalog. "
+            "When you quote something specific, attribute it as 'per our company info'. "
+            "If a snippet contradicts a guess you'd otherwise make, follow the snippet."
+        )
+        for i, ch in enumerate(knowledge_chunks, 1):
+            trimmed = ch.strip()
+            if len(trimmed) > 1200:
+                trimmed = trimmed[:1200] + "…"
+            parts.append(f"--- Snippet {i} ---\n{trimmed}")
+
     # 5. Hard rules
     lang = merchant.language_preference or "AUTO"
     if lang == "AUTO":
@@ -217,13 +241,23 @@ def _build_system_prompt(
         "Your job is to SHARE these WITH the customer. NEVER ask the customer to share their own phone, email, address, or contact details — we don't need them. "
         "Forbidden phrases include: 'share your contact', 'provide your phone', 'send us your email', 'a consultant will reach out'."
     )
-    parts.append(
-        "- When the customer says they want to BUY / PAY / ORDER / interested in purchasing → reply with:\n"
-        "    1) the product's price (unless per-product instructions say otherwise),\n"
-        "    2) at least one of OUR PAYMENT ACCOUNTS (bank name + account number + holder name) in full,\n"
-        "    3) at least one of OUR CONTACT entries — typically the first PHONE and/or first TELEGRAM_USERNAME — so they confirm with us after paying.\n"
-        "  Tell them to send the payment screenshot to that contact."
-    )
+    if is_service:
+        parts.append(
+            "- BUSINESS MODE: SERVICE_INQUIRY. We do not sell off-the-shelf products. "
+            "When the customer asks to buy / book / hire / for the price → do NOT share bank accounts. "
+            "Ask 1–2 short discovery questions to understand their need (scope, timeline, etc.), "
+            "and offer to continue privately by sharing OUR first PHONE and/or first TELEGRAM_USERNAME. "
+            "Pricing and payment terms are discussed AFTER scope is agreed — don't quote a price upfront unless "
+            "per-product instructions explicitly give one."
+        )
+    else:
+        parts.append(
+            "- When the customer says they want to BUY / PAY / ORDER / interested in purchasing → reply with:\n"
+            "    1) the product's price (unless per-product instructions say otherwise),\n"
+            "    2) at least one of OUR PAYMENT ACCOUNTS (bank name + account number + holder name) in full,\n"
+            "    3) at least one of OUR CONTACT entries — typically the first PHONE and/or first TELEGRAM_USERNAME — so they confirm with us after paying.\n"
+            "  Tell them to send the payment screenshot to that contact."
+        )
     parts.append(
         "- When the customer asks for SUPPORT or general help → share OUR first PHONE + first TELEGRAM_USERNAME."
     )
@@ -263,11 +297,14 @@ async def generate_reply(
     surface: Surface,
     catalog: list[dict] | None = None,
     history: list[dict] | None = None,
+    knowledge_chunks: list[str] | None = None,
 ) -> str:
     if not merchant.ai_provider or not merchant.ai_api_key:
         return _fallback_greeting(merchant.language_preference)
 
-    system_prompt = _build_system_prompt(merchant, product_ctx, surface, catalog)
+    system_prompt = _build_system_prompt(
+        merchant, product_ctx, surface, catalog, knowledge_chunks
+    )
 
     user_prompt_parts: list[str] = []
     if history:

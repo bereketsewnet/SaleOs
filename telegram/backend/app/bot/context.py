@@ -13,6 +13,8 @@ class BotMerchantContext:
     business_type: str | None = None
     business_description: str | None = None
     system_prompt: str | None = None
+    # "PRODUCT_SALES" (push bank info + receipt flow) | "SERVICE_INQUIRY" (share contact, no payment flow).
+    business_mode: str = "PRODUCT_SALES"
     # AI agent config (forwarded by bot_manager from Core internal config response)
     ai_provider: str | None = None
     ai_api_key: str | None = None

@@ -23,6 +23,7 @@ from app.schemas.telegram_channel import (
     TelegramChannelPostPublic,
 )
 from app.schemas.telegram_config import TelegramBotConfigInternal
+from app.services.knowledge_base_service import KnowledgeBaseService
 from app.services.media_service import MediaService
 from app.services.order_service import (
     OrderService,
@@ -398,6 +399,28 @@ async def create_order_from_channel_comment(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc)
         ) from exc
     return {"order_id": str(order.id), "order_status": order.order_status}
+
+
+class KBQueryRequest(BaseModel):
+    merchant_id: UUID
+    query: str
+    top_k: int = 4
+
+
+@router.post("/knowledge-base/query")
+async def query_knowledge_base(
+    payload: KBQueryRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_service_token),
+) -> dict:
+    """Called by the Telegram svc before generating an AI reply. Returns the
+    top-k relevant chunks from the merchant's knowledge base."""
+    chunks = await KnowledgeBaseService(db).query(
+        merchant_id=payload.merchant_id,
+        query=payload.query,
+        top_k=max(1, min(payload.top_k, 10)),
+    )
+    return {"chunks": chunks}
 
 
 @router.get("/merchants/{merchant_id}/catalog")

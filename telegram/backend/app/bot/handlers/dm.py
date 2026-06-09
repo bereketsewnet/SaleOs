@@ -220,12 +220,25 @@ def register(router: Router) -> None:
                 error=str(exc),
             )
 
+        knowledge_chunks: list[str] = []
+        try:
+            knowledge_chunks = await CoreClient().query_knowledge_base(
+                merchant.merchant_id, query=text, top_k=4
+            )
+        except Exception as exc:
+            logger.warning(
+                "dm_kb_fetch_failed",
+                merchant_id=str(merchant.merchant_id),
+                error=str(exc),
+            )
+
         reply = await generate_reply(
             merchant=merchant,
             customer_message=text,
             product_ctx=product_ctx,
             surface="DM",
             catalog=catalog,
+            knowledge_chunks=knowledge_chunks,
         )
         await message.answer(reply, disable_web_page_preview=True)
 

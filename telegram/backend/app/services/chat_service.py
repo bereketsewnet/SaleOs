@@ -35,6 +35,7 @@ async def _build_merchant_context(merchant_id: UUID) -> BotMerchantContext | Non
         business_type=cfg.get("business_type"),
         business_description=cfg.get("business_description"),
         system_prompt=cfg.get("system_prompt"),
+        business_mode=cfg.get("business_mode") or "PRODUCT_SALES",
         ai_provider=cfg.get("ai_provider"),
         ai_api_key=cfg.get("ai_api_key"),
         ai_model=cfg.get("ai_model"),
@@ -100,6 +101,18 @@ async def generate_chat_reply(
             error=str(exc),
         )
 
+    knowledge_chunks: list[str] = []
+    try:
+        knowledge_chunks = await CoreClient().query_knowledge_base(
+            merchant_id, query=message, top_k=4
+        )
+    except Exception as exc:
+        logger.warning(
+            "chat_kb_fetch_failed",
+            merchant_id=str(merchant_id),
+            error=str(exc),
+        )
+
     return await generate_reply(
         merchant=merchant,
         customer_message=message,
@@ -107,4 +120,5 @@ async def generate_chat_reply(
         surface="MINI_APP",
         catalog=catalog,
         history=history,
+        knowledge_chunks=knowledge_chunks,
     )

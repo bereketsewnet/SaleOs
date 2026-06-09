@@ -88,6 +88,7 @@ class BotManager:
             business_type=cfg.get("business_type"),
             business_description=cfg.get("business_description"),
             system_prompt=cfg.get("system_prompt"),
+            business_mode=cfg.get("business_mode") or "PRODUCT_SALES",
             ai_provider=cfg.get("ai_provider"),
             ai_api_key=cfg.get("ai_api_key"),
             ai_model=cfg.get("ai_model"),

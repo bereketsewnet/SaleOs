@@ -1,6 +1,7 @@
 import { api } from "./api";
 
 export type LanguagePref = "AMHARIC" | "ENGLISH" | "AUTO";
+export type BusinessMode = "PRODUCT_SALES" | "SERVICE_INQUIRY";
 
 export interface TelegramBotConfig {
   id: string;
@@ -15,6 +16,7 @@ export interface TelegramBotConfig {
   business_type: string | null;
   business_description: string | null;
   system_prompt: string | null;
+  business_mode: BusinessMode;
   // Defaults inherited by every product whose own fields are blank
   default_product_identifier: string | null;
   default_product_instructions: string | null;
@@ -30,6 +32,7 @@ export interface TelegramBrandVoiceUpdate {
   business_type?: string | null;
   business_description?: string | null;
   system_prompt?: string | null;
+  business_mode?: BusinessMode | null;
   default_product_identifier?: string | null;
   default_product_instructions?: string | null;
 }

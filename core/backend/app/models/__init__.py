@@ -4,6 +4,7 @@ from app.models.product import Product
 from app.models.inventory import InventoryLedger
 from app.models.order import Order, OrderItem
 from app.models.payment_account import MerchantPaymentAccount
+from app.models.knowledge_base import MerchantKnowledgeFile, MerchantKnowledgeChunk
 from app.models.telegram import (
     TelegramBotConfig,
     TelegramChannelPost,
@@ -21,6 +22,8 @@ __all__ = [
     "Order",
     "OrderItem",
     "MerchantPaymentAccount",
+    "MerchantKnowledgeFile",
+    "MerchantKnowledgeChunk",
     "TelegramBotConfig",
     "TelegramChannelPost",
     "TelegramChatSession",

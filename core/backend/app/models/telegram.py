@@ -47,6 +47,11 @@ class TelegramBotConfig(Base):
     business_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     business_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # PRODUCT_SALES = goods business (bot pushes bank info + receipt flow on buy intent).
+    # SERVICE_INQUIRY = consulting / services (bot shares contact info, no payment flow).
+    business_mode: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="PRODUCT_SALES"
+    )
 
     # Defaults inherited by every product whose own identifier/instructions are blank.
     default_product_identifier: Mapped[str | None] = mapped_column(Text, nullable=True)

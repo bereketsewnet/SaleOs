@@ -58,6 +58,7 @@ class TelegramBotService:
             business_type=payload.business_type,
             business_description=payload.business_description,
             system_prompt=payload.system_prompt,
+            business_mode=payload.business_mode,
             default_product_identifier=payload.default_product_identifier,
             default_product_instructions=payload.default_product_instructions,
         )
@@ -137,6 +138,7 @@ class TelegramBotService:
             "business_type": config.business_type,
             "business_description": config.business_description,
             "system_prompt": config.system_prompt,
+            "business_mode": config.business_mode or "PRODUCT_SALES",
             "ai_provider": config.ai_provider,
             "ai_api_key": decrypt_secret(config.ai_api_key) if config.ai_api_key else None,
             "ai_model": config.ai_model,

@@ -107,6 +107,51 @@ class MediaService:
         return url[idx + len(marker) :]
 
 
+class KnowledgeFileStorage:
+    """Private bucket for merchant knowledge-base source files (PDF/DOCX/MD/XLSX)."""
+
+    def __init__(self) -> None:
+        self.bucket = settings.MINIO_BUCKET_KNOWLEDGE
+
+    def upload(
+        self,
+        *,
+        merchant_id: UUID,
+        data: bytes,
+        filename: str,
+    ) -> str:
+        ext = Path(filename).suffix.lower() or ""
+        object_key = (
+            f"merchants/{merchant_id}/kb/{uuid.uuid4().hex}{ext}"
+        )
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        try:
+            _client_get().put_object(
+                bucket_name=self.bucket,
+                object_name=object_key,
+                data=io.BytesIO(data),
+                length=len(data),
+                content_type=content_type,
+            )
+        except S3Error as exc:
+            raise RuntimeError(f"minio_kb_upload_failed: {exc}") from exc
+        return object_key
+
+    def fetch_bytes(self, object_key: str) -> bytes:
+        response = _client_get().get_object(self.bucket, object_key)
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
+
+    def delete(self, object_key: str) -> None:
+        try:
+            _client_get().remove_object(self.bucket, object_key)
+        except S3Error:
+            pass  # best effort — the row will be deleted regardless
+
+
 class ReceiptStorage:
     """Private bucket for payment-receipt screenshots. Stored object keys are
     served to admins via short-lived presigned URLs (no public-read policy)."""

@@ -4,12 +4,14 @@ import {
   getTelegramConfig,
   getTelegramPresets,
   updateTelegramBrandVoice,
+  type BusinessMode,
 } from "../../lib/telegramConfigApi";
 import {
   getMerchantProfile,
   updateMerchantProfile,
 } from "../../lib/merchantProfileApi";
 import { useHasRole } from "../RoleGate";
+import { KnowledgeBaseSection } from "./KnowledgeBaseSection";
 
 export function BrandVoiceTab() {
   const canEdit = useHasRole(["ADMIN"]);
@@ -32,6 +34,7 @@ export function BrandVoiceTab() {
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [businessType, setBusinessType] = useState("");
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("PRODUCT_SALES");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [defaultIdentifier, setDefaultIdentifier] = useState("");
@@ -42,6 +45,7 @@ export function BrandVoiceTab() {
   useEffect(() => {
     if (config) {
       setBusinessType(config.business_type ?? "");
+      setBusinessMode(config.business_mode ?? "PRODUCT_SALES");
       setDescription(config.business_description ?? "");
       setSystemPrompt(config.system_prompt ?? "");
       setDefaultIdentifier(config.default_product_identifier ?? "");
@@ -75,6 +79,7 @@ export function BrandVoiceTab() {
         business_type: businessType || null,
         business_description: description || null,
         system_prompt: systemPrompt || null,
+        business_mode: businessMode,
         default_product_identifier: defaultIdentifier || null,
         default_product_instructions: defaultInstructions || null,
       });
@@ -203,6 +208,26 @@ export function BrandVoiceTab() {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            How do you sell?
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <ModeCard
+              active={businessMode === "PRODUCT_SALES"}
+              onClick={() => setBusinessMode("PRODUCT_SALES")}
+              title="🛍️ Product sales"
+              description="I sell goods upfront. The bot pushes bank info, accepts payment screenshots, and creates orders."
+            />
+            <ModeCard
+              active={businessMode === "SERVICE_INQUIRY"}
+              onClick={() => setBusinessMode("SERVICE_INQUIRY")}
+              title="🤝 Services / consulting"
+              description="I sell time or expertise. The bot collects inquiries and shares my contact — no upfront bank info or receipt flow."
+            />
+          </div>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
             One-line business description
           </label>
@@ -250,6 +275,8 @@ export function BrandVoiceTab() {
             to start from a template, then edit.
           </p>
         </div>
+
+        <KnowledgeBaseSection />
 
         <div className="border-t border-slate-200 pt-4">
           <h3 className="text-sm font-semibold text-slate-900 mb-2">
@@ -315,6 +342,33 @@ export function BrandVoiceTab() {
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500";
+
+function ModeCard({
+  active,
+  onClick,
+  title,
+  description,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-xl border p-3 transition ${
+        active
+          ? "border-brand-500 bg-brand-50 ring-2 ring-brand-100"
+          : "border-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      <p className="text-sm font-semibold text-slate-900">{title}</p>
+      <p className="text-xs text-slate-600 mt-1 leading-snug">{description}</p>
+    </button>
+  );
+}
 
 function TemplateChip({
   onClick,

@@ -63,6 +63,7 @@ class TelegramBotConfigRepository:
         business_type: str | None,
         business_description: str | None,
         system_prompt: str | None,
+        business_mode: str | None = None,
         default_product_identifier: str | None = None,
         default_product_instructions: str | None = None,
     ) -> TelegramBotConfig | None:
@@ -75,6 +76,8 @@ class TelegramBotConfigRepository:
             existing.business_description = business_description or None
         if system_prompt is not None:
             existing.system_prompt = system_prompt or None
+        if business_mode is not None:
+            existing.business_mode = business_mode
         if default_product_identifier is not None:
             existing.default_product_identifier = default_product_identifier or None
         if default_product_instructions is not None:

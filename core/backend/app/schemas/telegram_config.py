@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 LanguagePref = Literal["AMHARIC", "ENGLISH", "AUTO"]
+BusinessMode = Literal["PRODUCT_SALES", "SERVICE_INQUIRY"]
 
 
 class TelegramBotConfigUpsert(BaseModel):
@@ -20,6 +21,7 @@ class TelegramBrandVoiceUpdate(BaseModel):
     business_type: str | None = Field(default=None, max_length=100)
     business_description: str | None = Field(default=None, max_length=2000)
     system_prompt: str | None = Field(default=None, max_length=8000)
+    business_mode: BusinessMode | None = None
     # Defaults inherited by every product (used when product.identifier/instructions are blank)
     default_product_identifier: str | None = Field(default=None, max_length=4000)
     default_product_instructions: str | None = Field(default=None, max_length=4000)
@@ -38,6 +40,7 @@ class TelegramBotConfigPublic(BaseModel):
     business_type: str | None = None
     business_description: str | None = None
     system_prompt: str | None = None
+    business_mode: BusinessMode = "PRODUCT_SALES"
     default_product_identifier: str | None = None
     default_product_instructions: str | None = None
     # token is never returned
@@ -63,6 +66,7 @@ class TelegramBotConfigInternal(BaseModel):
     business_type: str | None = None
     business_description: str | None = None
     system_prompt: str | None = None
+    business_mode: BusinessMode = "PRODUCT_SALES"
 
     # AI agent fields (decrypted key for inter-service use only)
     ai_provider: str | None = None
