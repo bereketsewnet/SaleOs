@@ -193,8 +193,11 @@ def _build_system_prompt(
 
     if surface == "COMMENT":
         surface_rule = (
-            "This is a PUBLIC comment under a channel post — keep replies short, friendly, "
-            "and respect any 'do not reveal X' instruction."
+            "This is a PUBLIC comment under a channel post. Keep replies short and friendly. "
+            "CRITICAL PRIVACY RULE: NEVER share bank account numbers, payment instructions, "
+            "phone numbers, or contact details here. If the customer wants to buy, "
+            "another part of our system handles redirecting them to a private chat — "
+            "just answer their product question without leaking payment info."
         )
     elif surface == "MINI_APP":
         surface_rule = (

@@ -106,14 +106,26 @@ class BotManager:
         dp = build_dispatcher(storage, merchant)
 
         async def _poll() -> None:
-            try:
-                await dp.start_polling(bot, handle_signals=False)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                logger.error(
-                    "bot_polling_crashed", merchant_id=str(merchant_id), error=str(exc)
-                )
+            backoff = 2.0
+            while True:
+                try:
+                    await dp.start_polling(bot, handle_signals=False)
+                    # start_polling normally only returns when stopped — break out.
+                    return
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    logger.error(
+                        "bot_polling_crashed",
+                        merchant_id=str(merchant_id),
+                        error=str(exc),
+                        retry_in=backoff,
+                    )
+                    try:
+                        await asyncio.sleep(backoff)
+                    except asyncio.CancelledError:
+                        raise
+                    backoff = min(backoff * 2, 60.0)
 
         task = asyncio.create_task(_poll(), name=f"bot-poll-{merchant_id}")
         async with self._lock:

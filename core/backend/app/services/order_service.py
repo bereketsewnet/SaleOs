@@ -6,8 +6,10 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
+import httpx
 import structlog
 
+from app.core.config import settings
 from app.core.redis import get_redis
 from app.models.order import ChannelSource, Order, OrderStatus
 from app.repositories.inventory_repository import InventoryRepository
@@ -29,6 +31,19 @@ from app.services.media_service import ReceiptStorage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
+
+
+def _customer_status_message(order: Order, status: str) -> str | None:
+    short_id = str(order.id)[:8]
+    if status == OrderStatus.PREPARING:
+        return f"🛠 Order #{short_id} is being prepared. We'll let you know when it ships."
+    if status == OrderStatus.SHIPPED:
+        return f"🚚 Order #{short_id} is on its way to you."
+    if status == OrderStatus.DELIVERED:
+        return f"📦 Order #{short_id} is marked as delivered. Thanks for shopping with us!"
+    if status == OrderStatus.CANCELLED:
+        return f"⚠️ Order #{short_id} was cancelled. If you have questions, reply here."
+    return None
 
 
 class OutOfStockError(Exception):
@@ -188,7 +203,13 @@ class OrderService:
         order = await self.orders.get_scoped(order_id, merchant_id)
         if not order:
             raise OrderNotFoundError()
-        return await self.orders.update_status(order, new_status)
+        old_status = order.order_status
+        updated = await self.orders.update_status(order, new_status)
+        if new_status != old_status:
+            customer_msg = _customer_status_message(updated, new_status)
+            if customer_msg:
+                await self._notify_customer(updated, customer_msg)
+        return updated
 
     async def attach_payment_proof(
         self,
@@ -256,6 +277,11 @@ class OrderService:
             "PAYMENT_VERIFIED",
             {"order_id": str(order.id)},
         )
+        await self._notify_customer(
+            order,
+            f"✅ *Payment verified!* Your order #{str(order.id)[:8]} for ETB {order.total_amount} is being prepared. "
+            "We'll message you here when it ships.",
+        )
         return order
 
     async def reject_payment(
@@ -272,6 +298,12 @@ class OrderService:
             merchant_id,
             "PAYMENT_REJECTED",
             {"order_id": str(order.id), "reason": reason},
+        )
+        await self._notify_customer(
+            order,
+            f"❌ *Receipt rejected* for order #{str(order.id)[:8]}.\n"
+            f"Reason: _{reason}_\n\n"
+            "Please reply with a clearer screenshot of your payment.",
         )
         return order
 
@@ -369,3 +401,36 @@ class OrderService:
         redis = await get_redis()
         body = json.dumps({"type": type_, "payload": payload})
         await redis.publish(f"ws:alerts:{merchant_id}", body)
+
+    async def _notify_customer(self, order: Order, message: str) -> None:
+        """DM the customer via the merchant's Telegram bot. Best-effort: any
+        failure (bot not running, user blocked the bot, etc.) is logged and
+        swallowed — we never want a notification failure to roll back the
+        underlying status change."""
+        info = order.customer_info or {}
+        tg_user_id = info.get("telegram_user_id")
+        if not tg_user_id:
+            return
+        url = f"{settings.TELEGRAM_SERVICE_URL}/api/v1/telegram/internal/dm-customer"
+        body = {
+            "merchant_id": str(order.merchant_id),
+            "telegram_user_id": int(tg_user_id),
+            "message": message,
+        }
+        headers = {"X-Service-Token": settings.X_SERVICE_TOKEN}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, headers=headers, json=body)
+                if resp.status_code >= 400:
+                    logger.warning(
+                        "customer_dm_failed",
+                        order_id=str(order.id),
+                        status_code=resp.status_code,
+                        body=resp.text[:200],
+                    )
+        except Exception as exc:
+            logger.warning(
+                "customer_dm_exception",
+                order_id=str(order.id),
+                error=str(exc),
+            )
