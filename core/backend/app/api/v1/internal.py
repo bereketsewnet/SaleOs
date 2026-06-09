@@ -4,7 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel
+
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.core.security import verify_service_token
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.merchant_repository import MerchantRepository
@@ -21,6 +24,11 @@ from app.schemas.telegram_channel import (
 )
 from app.schemas.telegram_config import TelegramBotConfigInternal
 from app.services.media_service import MediaService
+from app.services.order_service import (
+    OrderService,
+    OutOfStockError,
+    ProductMissingError,
+)
 from app.services.product_service import ProductNotFoundError, ProductService
 from app.services.telegram_bot_service import TelegramBotService
 from app.utils.crypto import decrypt_secret
@@ -33,10 +41,24 @@ def _require_service_token(x_service_token: str = Header(...)) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid service token")
 
 
+class AlertPayload(BaseModel):
+    merchant_id: UUID
+    type: str
+    payload: dict
+
+
 @router.post("/alert")
-async def broadcast_alert(_: None = Depends(_require_service_token)) -> dict:
-    """Phase 7 — admin WS broadcast."""
-    raise NotImplementedError
+async def broadcast_alert(
+    body: AlertPayload, _: None = Depends(_require_service_token)
+) -> dict:
+    """Publishes an event to the merchant's WS channel for admin-panel toasts."""
+    import json as _json
+    redis = await get_redis()
+    await redis.publish(
+        f"ws:alerts:{body.merchant_id}",
+        _json.dumps({"type": body.type, "payload": body.payload}),
+    )
+    return {"published": True}
 
 
 @router.get("/health")
@@ -298,6 +320,84 @@ async def get_product_for_channel_message(
     if not post or post.merchant_id != merchant_id:
         return {"product_id": None}
     return {"product_id": str(post.product_id) if post.product_id else None}
+
+
+class OrderCustomerDetailsUpdate(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+    address: str | None = None
+
+
+@router.patch("/orders/{order_id}/customer-details")
+async def update_order_customer_details(
+    order_id: UUID,
+    payload: OrderCustomerDetailsUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_service_token),
+) -> dict:
+    """Used by the Telegram svc to fill in phone/address that the channel-comment
+    flow collects from the customer AFTER the order is auto-created."""
+    from app.repositories.order_repository import OrderRepository
+
+    repo = OrderRepository(db)
+    order = await repo.get_with_items(order_id)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    info = dict(order.customer_info or {})
+    if payload.name:
+        info["name"] = payload.name
+    if payload.phone:
+        info["phone"] = payload.phone
+    if payload.address:
+        info["address"] = payload.address
+    order.customer_info = info
+    await db.flush()
+    return {"order_id": str(order.id), "customer_info": info}
+
+
+@router.post("/orders/from-channel-comment")
+async def create_order_from_channel_comment(
+    merchant_id: UUID = Form(...),
+    product_id: UUID = Form(...),
+    telegram_user_id: int = Form(...),
+    customer_name: str | None = Form(default=None),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_service_token),
+) -> dict:
+    """Telegram svc calls this when a customer posts a payment screenshot in a
+    product's discussion-group thread after expressing buy intent."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="empty_file")
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="receipt_too_large"
+        )
+    try:
+        order = await OrderService(db).create_from_channel_comment(
+            merchant_id=merchant_id,
+            product_id=product_id,
+            telegram_user_id=telegram_user_id,
+            customer_name=customer_name,
+            receipt_bytes=data,
+            receipt_filename=file.filename or "receipt.jpg",
+        )
+    except ProductMissingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "product_not_found", "product_id": str(exc)},
+        ) from exc
+    except OutOfStockError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": "out_of_stock", "product_id": str(exc.product_id)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc)
+        ) from exc
+    return {"order_id": str(order.id), "order_status": order.order_status}
 
 
 @router.get("/merchants/{merchant_id}/catalog")

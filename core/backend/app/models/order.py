@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, JSON, Numeric, String, Uuid, func
+from sqlalchemy import DateTime, ForeignKey, Index, JSON, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,11 +22,13 @@ class ChannelSource:
 
 
 class OrderStatus:
-    PENDING = "PENDING"
-    PROCESSING = "PROCESSING"
-    PAID = "PAID"
-    PENDING_MANUAL_REVIEW = "PENDING_MANUAL_REVIEW"
-    FULFILLED = "FULFILLED"
+    PENDING_PAYMENT = "PENDING_PAYMENT"
+    PAYMENT_SUBMITTED = "PAYMENT_SUBMITTED"
+    PAYMENT_VERIFIED = "PAYMENT_VERIFIED"
+    PAYMENT_REJECTED = "PAYMENT_REJECTED"
+    PREPARING = "PREPARING"
+    SHIPPED = "SHIPPED"
+    DELIVERED = "DELIVERED"
     CANCELLED = "CANCELLED"
 
 
@@ -53,7 +55,27 @@ class Order(Base):
     channel_source: Mapped[str] = mapped_column(String(50), nullable=False)
     channel_order_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    order_status: Mapped[str] = mapped_column(String(50), default=OrderStatus.PENDING)
+    order_status: Mapped[str] = mapped_column(String(50), default=OrderStatus.PENDING_PAYMENT)
+    # Bank account the customer was told to pay to. SET NULL if account deleted later.
+    payment_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("merchant_payment_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_proof_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_proof_uploaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    payment_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    payment_verified_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    payment_rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

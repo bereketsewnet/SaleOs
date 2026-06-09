@@ -5,6 +5,10 @@ import {
   getTelegramPresets,
   updateTelegramBrandVoice,
 } from "../../lib/telegramConfigApi";
+import {
+  getMerchantProfile,
+  updateMerchantProfile,
+} from "../../lib/merchantProfileApi";
 import { useHasRole } from "../RoleGate";
 
 export function BrandVoiceTab() {
@@ -19,7 +23,14 @@ export function BrandVoiceTab() {
     queryKey: ["telegramPresets"],
     queryFn: getTelegramPresets,
   });
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["merchantProfile"],
+    queryFn: getMerchantProfile,
+  });
 
+  const [businessName, setBusinessName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [businessType, setBusinessType] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -38,20 +49,42 @@ export function BrandVoiceTab() {
     }
   }, [config]);
 
+  useEffect(() => {
+    if (profile) {
+      setBusinessName(profile.business_name);
+      setContactPhone(profile.contact_phone);
+      setContactEmail(profile.contact_email);
+    }
+  }, [profile]);
+
   const saveMutation = useMutation({
-    mutationFn: () =>
-      updateTelegramBrandVoice({
+    mutationFn: async () => {
+      const needsIdentityUpdate =
+        profile &&
+        (businessName.trim() !== profile.business_name ||
+          contactPhone.trim() !== profile.contact_phone ||
+          contactEmail.trim() !== profile.contact_email);
+      if (needsIdentityUpdate) {
+        await updateMerchantProfile({
+          business_name: businessName.trim(),
+          contact_phone: contactPhone.trim(),
+          contact_email: contactEmail.trim(),
+        });
+      }
+      return updateTelegramBrandVoice({
         business_type: businessType || null,
         business_description: description || null,
         system_prompt: systemPrompt || null,
         default_product_identifier: defaultIdentifier || null,
         default_product_instructions: defaultInstructions || null,
-      }),
+      });
+    },
     onSuccess: () => {
       setError(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
       qc.invalidateQueries({ queryKey: ["telegramConfig"] });
+      qc.invalidateQueries({ queryKey: ["merchantProfile"] });
     },
     onError: (err: any) => {
       const detail = err?.response?.data?.detail;
@@ -68,7 +101,7 @@ export function BrandVoiceTab() {
     setSystemPrompt(template);
   }
 
-  if (isLoading) return <p className="text-slate-500">Loading…</p>;
+  if (isLoading || profileLoading) return <p className="text-slate-500">Loading…</p>;
 
   return (
     <div className="space-y-5">
@@ -97,6 +130,57 @@ export function BrandVoiceTab() {
           !canEdit || !config ? "opacity-60 pointer-events-none" : ""
         }`}
       >
+        {/* Business identity — applies everywhere (admin panel, Mini App, bot replies) */}
+        <div className="pb-4 border-b border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 mb-1">Business identity</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Shown to customers in the Mini App, the bot's greeting, and the AI agent's replies.
+            Saving here also reloads the bot so it speaks the new name immediately.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Business name <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                minLength={2}
+                maxLength={255}
+                className={inputClass}
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="Habesha Coffee"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Contact phone
+                </label>
+                <input
+                  type="tel"
+                  className={inputClass}
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder="+251911111111"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Contact email
+                </label>
+                <input
+                  type="email"
+                  className={inputClass}
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="contact@habesha.com"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
             What kind of business are you?
@@ -256,6 +340,10 @@ function humanize(code: string): string {
       return "Connect your Telegram bot in the Telegram Bot tab first.";
     case "no_merchant_context":
       return "Your account isn't linked to a merchant.";
+    case "email_already_used":
+      return "That email is already used by another merchant.";
+    case "phone_already_used":
+      return "That phone is already used by another merchant.";
     default:
       return code.replaceAll("_", " ");
   }

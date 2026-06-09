@@ -21,6 +21,7 @@ client = Minio(
 
 OCR_BUCKET = os.getenv("MINIO_BUCKET_OCR", "ocr-receipts")
 MEDIA_BUCKET = os.getenv("MINIO_BUCKET_MEDIA", "merchant-media")
+RECEIPTS_BUCKET = os.getenv("MINIO_BUCKET_RECEIPTS", "payment-receipts")
 
 
 def ensure_bucket(name: str) -> None:
@@ -50,5 +51,6 @@ def set_public_read(bucket: str) -> None:
 ensure_bucket(OCR_BUCKET)  # private (receipts are sensitive)
 ensure_bucket(MEDIA_BUCKET)
 set_public_read(MEDIA_BUCKET)
+ensure_bucket(RECEIPTS_BUCKET)  # private — payment receipts contain bank/account info
 
 print("Done.")

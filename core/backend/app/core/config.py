@@ -44,10 +44,14 @@ class Settings(BaseSettings):
 
     # MinIO
     MINIO_ENDPOINT: str = "minio:9000"
+    # Browser-facing endpoint — used to sign presigned URLs so the signature
+    # matches the host the browser actually connects to.
+    MINIO_PUBLIC_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str
     MINIO_SECRET_KEY: str
     MINIO_BUCKET_OCR: str = "ocr-receipts"
     MINIO_BUCKET_MEDIA: str = "merchant-media"
+    MINIO_BUCKET_RECEIPTS: str = "payment-receipts"
     MINIO_USE_SSL: bool = False
 
     # Microservice URLs

@@ -45,3 +45,21 @@ class MerchantRepository:
         await self.db.refresh(merchant)
         return merchant
 
+    async def update_profile(
+        self,
+        merchant: Merchant,
+        *,
+        business_name: str | None = None,
+        contact_email: str | None = None,
+        contact_phone: str | None = None,
+    ) -> Merchant:
+        if business_name is not None:
+            merchant.business_name = business_name
+        if contact_email is not None:
+            merchant.contact_email = contact_email
+        if contact_phone is not None:
+            merchant.contact_phone = contact_phone
+        await self.db.flush()
+        await self.db.refresh(merchant)
+        return merchant
+

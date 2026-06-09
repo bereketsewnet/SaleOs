@@ -133,6 +133,46 @@ class CoreClient:
             )
             resp.raise_for_status()
 
+    async def update_order_customer_details(
+        self,
+        *,
+        order_id: UUID,
+        name: str | None = None,
+        phone: str | None = None,
+        address: str | None = None,
+    ) -> dict:
+        url = f"{self._base}/api/v1/internal/orders/{order_id}/customer-details"
+        payload = {"name": name, "phone": phone, "address": address}
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.patch(url, headers=self._headers, json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def create_order_from_channel_comment(
+        self,
+        *,
+        merchant_id: UUID,
+        product_id: UUID,
+        telegram_user_id: int,
+        customer_name: str | None,
+        receipt_bytes: bytes,
+        receipt_filename: str,
+        content_type: str = "image/jpeg",
+    ) -> dict:
+        url = f"{self._base}/api/v1/internal/orders/from-channel-comment"
+        files = {"file": (receipt_filename, receipt_bytes, content_type)}
+        form = {
+            "merchant_id": str(merchant_id),
+            "product_id": str(product_id),
+            "telegram_user_id": str(telegram_user_id),
+        }
+        if customer_name:
+            form["customer_name"] = customer_name
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, headers=self._headers, files=files, data=form)
+            resp.raise_for_status()
+            return resp.json()
+
     async def save_channel_post(
         self,
         merchant_id: UUID,

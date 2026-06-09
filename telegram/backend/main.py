@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.redis import close_redis
-from app.api.v1 import broadcasts, channel_admin, config, ocr, publish, webhook
+from app.api.v1 import broadcasts, channel_admin, chat, config, ocr, publish, webhook
 from app.services.bot_manager import get_bot_manager
 
 logger = structlog.get_logger()
@@ -48,6 +48,7 @@ app.include_router(broadcasts.router, prefix="/api/v1/telegram", tags=["broadcas
 app.include_router(publish.router, prefix="/api/v1/telegram", tags=["publish"])
 app.include_router(channel_admin.router, prefix="/api/v1/telegram", tags=["channel-admin"])
 app.include_router(ocr.router, prefix="/api/v1/telegram", tags=["ocr"])
+app.include_router(chat.router, prefix="/api/v1/telegram", tags=["chat"])
 
 
 @app.get("/health")

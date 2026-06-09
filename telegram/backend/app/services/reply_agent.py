@@ -14,7 +14,7 @@ from app.services.ai_provider import AIError, complete_text
 logger = structlog.get_logger()
 
 
-Surface = Literal["DM", "COMMENT"]
+Surface = Literal["DM", "COMMENT", "MINI_APP"]
 
 
 @dataclass(frozen=True)
@@ -191,11 +191,20 @@ def _build_system_prompt(
     else:
         lang_rule = "Always reply in English."
 
-    surface_rule = (
-        "This is a PUBLIC comment under a channel post — keep replies short, friendly, and respect any 'do not reveal X' instruction."
-        if surface == "COMMENT"
-        else "This is a private direct message."
-    )
+    if surface == "COMMENT":
+        surface_rule = (
+            "This is a PUBLIC comment under a channel post — keep replies short, friendly, "
+            "and respect any 'do not reveal X' instruction."
+        )
+    elif surface == "MINI_APP":
+        surface_rule = (
+            "This is a private chat INSIDE OUR MINI APP. The customer is already looking at "
+            "the product page and can act with on-screen buttons (see UI HINTS below). "
+            "When you tell them to do something (add to cart, checkout, see bank info), refer "
+            "to those buttons by name instead of asking them to leave the Mini App."
+        )
+    else:
+        surface_rule = "This is a private direct message."
 
     parts.append("\n=== HARD RULES (highest priority — override everything else) ===")
     parts.append(f"- {lang_rule}")
@@ -220,6 +229,26 @@ def _build_system_prompt(
     parts.append("- When an instruction says 'share the first phone' or 'send my Telegram', use the FIRST entry under that kind above.")
     parts.append("- Keep replies short (1–3 sentences for comments, up to 8 for DM with bank details).")
 
+    if surface == "MINI_APP":
+        parts.append("\n=== MINI APP UI HINTS (only when surface is MINI_APP) ===")
+        parts.append(
+            "Right below this chat the customer sees three quick-action buttons they can tap:"
+        )
+        parts.append("  • 🛒 Add to cart — adds the current product to their cart")
+        parts.append("  • 🧾 Checkout — opens the cart so they can review and place the order")
+        parts.append("  • 💳 Bank & Contacts — opens our Info page with bank accounts + DM contacts")
+        parts.append(
+            "When the customer expresses buy intent, do BOTH:\n"
+            "  (a) include the price + at least one bank account + first phone/Telegram username "
+            "in the message (so they have the info even if they don't tap),\n"
+            "  (b) ALSO tell them they can tap '🛒 Add to cart' and then '🧾 Checkout' to place "
+            "the order in the app, and '💳 Bank & Contacts' to see all bank accounts."
+        )
+        parts.append(
+            "Never tell them to 'DM us on Telegram' or 'leave the app' — they're already chatting "
+            "with us inside the Mini App. Refer to the buttons by their exact emoji + label."
+        )
+
     return "\n".join(parts)
 
 
@@ -230,15 +259,27 @@ async def generate_reply(
     product_ctx: ProductContext | None,
     surface: Surface,
     catalog: list[dict] | None = None,
+    history: list[dict] | None = None,
 ) -> str:
     if not merchant.ai_provider or not merchant.ai_api_key:
         return _fallback_greeting(merchant.language_preference)
 
     system_prompt = _build_system_prompt(merchant, product_ctx, surface, catalog)
-    user_prompt = (
-        f"Customer message:\n{customer_message.strip()}\n\n"
-        "Write the reply now."
-    )
+
+    user_prompt_parts: list[str] = []
+    if history:
+        user_prompt_parts.append("=== RECENT CONVERSATION (oldest first) ===")
+        for turn in history[-8:]:
+            role = turn.get("role", "customer")
+            content = (turn.get("content") or "").strip()
+            if not content:
+                continue
+            speaker = "customer" if role == "customer" else "you"
+            user_prompt_parts.append(f"{speaker}: {content}")
+        user_prompt_parts.append("")
+    user_prompt_parts.append(f"Customer message:\n{customer_message.strip()}")
+    user_prompt_parts.append("\nWrite the reply now.")
+    user_prompt = "\n".join(user_prompt_parts)
 
     try:
         text = await complete_text(
@@ -247,7 +288,7 @@ async def generate_reply(
             model=merchant.ai_model,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            max_tokens=600 if surface == "DM" else 250,
+            max_tokens=250 if surface == "COMMENT" else 600,
         )
         text = text.strip()
         return text or _fallback_greeting(merchant.language_preference)

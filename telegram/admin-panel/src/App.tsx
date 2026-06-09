@@ -5,8 +5,12 @@ import DashboardHome from "./pages/DashboardHome";
 import SettingsPage from "./pages/SettingsPage";
 import ProductsPage from "./pages/ProductsPage";
 import ProductFormPage from "./pages/ProductFormPage";
+import OrdersPage from "./pages/OrdersPage";
+import OrderDetailPage from "./pages/OrderDetailPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { WSConnector } from "./components/WSConnector";
+import { ToastStack } from "./components/Toast";
 
 export default function App() {
   return (
@@ -21,7 +25,8 @@ export default function App() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/new" element={<ProductFormPage />} />
             <Route path="/products/:productId" element={<ProductFormPage />} />
-            <Route path="/orders" element={<Placeholder title="Orders" />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/orders/:orderId" element={<OrderDetailPage />} />
             <Route path="/bot" element={<Placeholder title="Telegram Bot" />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
@@ -29,6 +34,10 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* Real-time alerts (WebSocket) + toast stack — mounted globally for logged-in users */}
+      <WSConnector />
+      <ToastStack />
     </BrowserRouter>
   );
 }
