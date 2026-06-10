@@ -1,6 +1,15 @@
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  HiOutlineCheckCircle,
+  HiOutlineReceiptRefund,
+  HiOutlineBuildingLibrary,
+  HiOutlineCloudArrowUp,
+  HiOutlineChatBubbleLeftEllipsis,
+  HiOutlinePhone,
+  HiOutlineArrowRight,
+} from "react-icons/hi2";
 import { getOrder, uploadPaymentProof, type Order } from "../lib/catalogApi";
 import { withSearch } from "../lib/nav";
 import { hapticImpact, hapticNotification } from "../lib/telegram";
@@ -85,43 +94,45 @@ export default function OrderSuccessPage() {
   }
 
   return (
-    <div className="p-4 pb-24">
-      <div className="text-center mt-2">
-        <div className="text-5xl">{hasProof ? "🧾" : "✅"}</div>
-        <h1 className="text-xl font-semibold mt-2">
+    <div className="p-4 pb-24 animate-fade-in">
+      <div className="text-center mt-3">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-400 to-emerald-600 grid place-items-center text-white mx-auto shadow-lg">
+          {hasProof ? (
+            <HiOutlineReceiptRefund className="w-10 h-10" />
+          ) : (
+            <HiOutlineCheckCircle className="w-10 h-10" />
+          )}
+        </div>
+        <h1 className="text-xl font-bold text-tg-text mt-3">
           {hasProof ? "Receipt received" : "Order placed!"}
         </h1>
-        <p className="text-sm text-tg-hint">
-          Order #{order.id.slice(0, 8)} · Total <span className="font-semibold">ETB {order.total_amount}</span>
+        <p className="text-sm text-tg-hint mt-1">
+          Order <span className="font-mono">#{order.id.slice(0, 8)}</span> · Total{" "}
+          <span className="font-bold text-tg-text">ETB {order.total_amount}</span>
         </p>
       </div>
 
       <StatusBanner order={order} />
 
       {order.payment_account ? (
-        <section className="mt-5 bg-tg-secondaryBg rounded-2xl p-4">
-          <h2 className="font-semibold mb-2">💳 Pay to this account</h2>
-          <p className="text-sm">
-            <span className="text-tg-hint">Bank: </span>
-            <span className="font-medium">{order.payment_account.bank_name}</span>
-          </p>
-          <p className="text-sm">
-            <span className="text-tg-hint">Account: </span>
-            <span className="font-mono font-semibold">{order.payment_account.account_number}</span>
-          </p>
-          <p className="text-sm">
-            <span className="text-tg-hint">Name: </span>
-            <span className="font-medium">{order.payment_account.account_holder_name}</span>
-          </p>
+        <section className="card card-pad mt-4 animate-slide-up">
+          <h2 className="text-sm font-bold text-tg-text flex items-center gap-2 mb-2">
+            <HiOutlineBuildingLibrary className="w-5 h-5 text-brand-600" /> Pay to this account
+          </h2>
+          <Row label="Bank" value={order.payment_account.bank_name} />
+          <Row label="Account" value={order.payment_account.account_number} mono />
+          <Row label="Name" value={order.payment_account.account_holder_name} />
         </section>
       ) : (
-        <section className="mt-5 bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm">
+        <section className="mt-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm">
           The shop hasn't set up a payment account yet. Please reach out using a contact below.
         </section>
       )}
 
-      <section className="mt-4 bg-tg-secondaryBg rounded-2xl p-4">
-        <h2 className="font-semibold mb-2">📸 Upload your payment screenshot</h2>
+      <section className="card card-pad mt-4 animate-slide-up">
+        <h2 className="text-sm font-bold text-tg-text flex items-center gap-2 mb-2">
+          <HiOutlineCloudArrowUp className="w-5 h-5 text-brand-600" /> Upload payment screenshot
+        </h2>
         <p className="text-xs text-tg-hint mb-3">
           {needsUpload
             ? "After paying, send the receipt here. The shop will verify and confirm your order."
@@ -129,16 +140,11 @@ export default function OrderSuccessPage() {
         </p>
 
         {hasProof && (
-          <a
-            href={order.payment_proof_url!}
-            target="_blank"
-            rel="noreferrer"
-            className="block mb-3"
-          >
+          <a href={order.payment_proof_url!} target="_blank" rel="noreferrer" className="block mb-3">
             <img
               src={order.payment_proof_url!}
               alt="Your receipt"
-              className="max-h-64 rounded-lg border border-black/10"
+              className="max-h-64 rounded-2xl ring-1 ring-slate-200 shadow-sm"
             />
           </a>
         )}
@@ -150,54 +156,60 @@ export default function OrderSuccessPage() {
           className="hidden"
           onChange={handleFile}
         />
-        <button
-          onClick={pickFile}
-          disabled={uploadMutation.isPending}
-          className="w-full rounded-xl bg-tg-button text-tg-buttonText font-semibold py-3 disabled:opacity-50"
-        >
+        <button onClick={pickFile} disabled={uploadMutation.isPending} className="btn-primary w-full">
+          <HiOutlineCloudArrowUp className="w-5 h-5" />
           {uploadMutation.isPending
             ? "Uploading…"
             : hasProof
             ? "Replace receipt"
             : "Upload receipt"}
         </button>
-        {uploadError && (
-          <p className="text-xs text-red-600 mt-2">{uploadError}</p>
-        )}
+        {uploadError && <p className="text-xs text-red-600 mt-2">{uploadError}</p>}
       </section>
 
       {confirmTarget && (
-        <section className="mt-4 bg-tg-secondaryBg rounded-2xl p-4">
-          <h2 className="font-semibold mb-1">Need help? Reach us at:</h2>
-          <p className="text-sm">
-            {confirmTarget.kind === "TELEGRAM_USERNAME" ? (
-              <a
-                href={`https://t.me/${confirmTarget.value.replace(/^@/, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-tg-link font-medium underline"
-              >
-                {confirmTarget.value}
-              </a>
-            ) : (
-              <a href={`tel:${confirmTarget.value}`} className="text-tg-link font-medium">
-                {confirmTarget.value}
-              </a>
-            )}
-            {confirmTarget.label && (
-              <span className="text-tg-hint"> · {confirmTarget.label}</span>
-            )}
-          </p>
+        <section className="card card-pad mt-4">
+          <h2 className="text-sm font-bold text-tg-text mb-2">Need help? Reach us at:</h2>
+          {confirmTarget.kind === "TELEGRAM_USERNAME" ? (
+            <a
+              href={`https://t.me/${confirmTarget.value.replace(/^@/, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-brand-700 font-semibold text-sm"
+            >
+              <HiOutlineChatBubbleLeftEllipsis className="w-4 h-4" />
+              {confirmTarget.value}
+            </a>
+          ) : (
+            <a
+              href={`tel:${confirmTarget.value}`}
+              className="inline-flex items-center gap-2 text-brand-700 font-semibold text-sm"
+            >
+              <HiOutlinePhone className="w-4 h-4" />
+              {confirmTarget.value}
+            </a>
+          )}
+          {confirmTarget.label && (
+            <span className="text-tg-hint text-xs block mt-0.5">{confirmTarget.label}</span>
+          )}
         </section>
       )}
 
-      <Link
-        to={withSearch("/")}
-        className="mt-6 block text-center rounded-xl bg-tg-secondaryBg font-semibold py-3"
-      >
-        Continue shopping
+      <Link to={withSearch("/")} className="btn-secondary w-full mt-5">
+        Continue shopping <HiOutlineArrowRight className="w-4 h-4" />
       </Link>
     </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <p className="text-sm flex justify-between py-0.5">
+      <span className="text-tg-hint">{label}</span>
+      <span className={mono ? "font-mono font-bold text-tg-text" : "font-semibold text-tg-text"}>
+        {value}
+      </span>
+    </p>
   );
 }
 
@@ -206,7 +218,7 @@ function StatusBanner({ order }: { order: Order }) {
   const tone = STATUS_TONE[order.order_status] ?? "bg-tg-secondaryBg border-black/10";
   return (
     <section className={`mt-4 rounded-2xl border p-3 text-sm ${tone}`}>
-      <p className="font-semibold">{label}</p>
+      <p className="font-bold">{label}</p>
       {order.order_status === "PAYMENT_REJECTED" && order.payment_rejection_reason && (
         <p className="mt-1 text-xs">Reason: {order.payment_rejection_reason}</p>
       )}

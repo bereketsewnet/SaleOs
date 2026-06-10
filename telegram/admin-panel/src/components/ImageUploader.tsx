@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from "react";
+import { HiOutlinePhoto, HiOutlinePlus, HiOutlineXMark } from "react-icons/hi2";
 import { uploadProductImage } from "../lib/productsApi";
 
 interface Props {
@@ -42,29 +43,32 @@ export function ImageUploader({ urls, onChange, max = 5, disabled }: Props) {
     <div>
       <div className="flex flex-wrap gap-3">
         {urls.map((u, idx) => (
-          <div key={u + idx} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+          <div
+            key={u + idx}
+            className="relative w-28 h-28 rounded-2xl overflow-hidden ring-1 ring-slate-200 bg-slate-50 shadow-sm group"
+          >
             <img src={u} alt="" className="w-full h-full object-cover" />
             {!disabled && (
               <button
                 type="button"
                 onClick={() => removeAt(idx)}
-                className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
+                className="absolute top-1.5 right-1.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full w-6 h-6 grid place-items-center transition opacity-0 group-hover:opacity-100"
                 aria-label="Remove image"
               >
-                ×
+                <HiOutlineXMark className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         ))}
 
         {urls.length < max && !disabled && (
-          <label className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-xs text-slate-500 cursor-pointer hover:border-brand-500 hover:text-brand-600 transition">
+          <label className="w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 flex flex-col items-center justify-center gap-1 text-xs text-slate-500 cursor-pointer hover:border-brand-500 hover:text-brand-700 hover:bg-brand-50/50 transition">
             {uploading ? (
-              <span>Uploading…</span>
+              <span className="text-[11px]">Uploading…</span>
             ) : (
               <>
-                <span className="text-2xl leading-none">+</span>
-                <span>Add image</span>
+                <HiOutlinePlus className="w-5 h-5" />
+                <span className="font-medium">Add image</span>
               </>
             )}
             <input
@@ -78,11 +82,9 @@ export function ImageUploader({ urls, onChange, max = 5, disabled }: Props) {
           </label>
         )}
       </div>
-      {error && (
-        <p className="mt-2 text-sm text-red-700">{error}</p>
-      )}
-      <p className="mt-2 text-xs text-slate-500">
-        Up to {max} images · jpg / png / webp · max 10 MB each
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+      <p className="mt-2 text-xs text-slate-500 flex items-center gap-1.5">
+        <HiOutlinePhoto className="w-3.5 h-3.5" /> Up to {max} images · jpg / png / webp · max 10 MB each
       </p>
     </div>
   );

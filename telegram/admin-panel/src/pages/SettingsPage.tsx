@@ -1,4 +1,12 @@
 import { useState } from "react";
+import {
+  HiOutlineCog6Tooth,
+  HiOutlineRadio,
+  HiOutlineMegaphone,
+  HiOutlineSparkles,
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineBanknotes,
+} from "react-icons/hi2";
 import { BrandVoiceTab } from "../components/settings/BrandVoiceTab";
 import { BotSettingsTab } from "../components/settings/BotSettingsTab";
 import { ChannelTab } from "../components/settings/ChannelTab";
@@ -6,39 +14,44 @@ import { AIAgentsTab } from "../components/settings/AIAgentsTab";
 import { DmContactsTab } from "../components/settings/DmContactsTab";
 import { PaymentAccountsTab } from "../components/settings/PaymentAccountsTab";
 
-type Tab = "bot" | "channel" | "brand" | "ai" | "dm" | "payments";
+type TabId = "bot" | "channel" | "brand" | "ai" | "dm" | "payments";
+
+const TABS: {
+  id: TabId;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { id: "bot", label: "Telegram Bot", Icon: HiOutlineRadio },
+  { id: "channel", label: "Channel", Icon: HiOutlineMegaphone },
+  { id: "brand", label: "Brand Voice", Icon: HiOutlineSparkles },
+  { id: "ai", label: "AI Agents", Icon: HiOutlineCog6Tooth },
+  { id: "dm", label: "DM Info", Icon: HiOutlineChatBubbleLeftRight },
+  { id: "payments", label: "Payment Accounts", Icon: HiOutlineBanknotes },
+];
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("bot");
+  const [tab, setTab] = useState<TabId>("bot");
 
   return (
-    <div className="max-w-4xl">
-      <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 mb-1">
-        Telegram Settings
-      </h1>
-      <p className="text-slate-500 mb-6">
-        Everything here applies <span className="font-medium text-slate-700">only to Telegram</span>.
-      </p>
+    <div className="max-w-5xl mx-auto animate-fade-in">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Telegram Settings</h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Everything here applies <span className="font-semibold text-slate-700">only to Telegram</span>.
+          TikTok, IG and FB have their own settings on their own panels.
+        </p>
+      </div>
 
-      <div className="flex gap-1 sm:gap-2 border-b border-slate-200 mb-6 overflow-x-auto">
-        <TabButton active={tab === "bot"} onClick={() => setTab("bot")}>
-          Telegram Bot
-        </TabButton>
-        <TabButton active={tab === "channel"} onClick={() => setTab("channel")}>
-          Channel
-        </TabButton>
-        <TabButton active={tab === "brand"} onClick={() => setTab("brand")}>
-          Brand Voice
-        </TabButton>
-        <TabButton active={tab === "ai"} onClick={() => setTab("ai")}>
-          AI Agents
-        </TabButton>
-        <TabButton active={tab === "dm"} onClick={() => setTab("dm")}>
-          DM Info
-        </TabButton>
-        <TabButton active={tab === "payments"} onClick={() => setTab("payments")}>
-          Payment Accounts
-        </TabButton>
+      <div className="card mb-5 p-1.5 inline-flex flex-wrap gap-1 max-w-full overflow-x-auto scroll-thin">
+        {TABS.map((t) => (
+          <TabButton
+            key={t.id}
+            active={tab === t.id}
+            onClick={() => setTab(t.id)}
+            Icon={t.Icon}
+            label={t.label}
+          />
+        ))}
       </div>
 
       {tab === "bot" && <BotSettingsTab />}
@@ -54,22 +67,25 @@ export default function SettingsPage() {
 function TabButton({
   active,
   onClick,
-  children,
+  Icon,
+  label,
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  Icon: React.ComponentType<{ className?: string }>;
+  label: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap ${
+      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${
         active
-          ? "border-brand-600 text-brand-700"
-          : "border-transparent text-slate-600 hover:text-slate-900"
+          ? "bg-brand-600 text-white shadow-sm"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`}
     >
-      {children}
+      <Icon className="w-4 h-4" />
+      {label}
     </button>
   );
 }

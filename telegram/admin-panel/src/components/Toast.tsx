@@ -1,17 +1,42 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import {
+  HiOutlineBell,
+  HiOutlineCheckCircle,
+  HiOutlineInformationCircle,
+  HiOutlineXMark,
+  HiArrowRight,
+} from "react-icons/hi2";
 import { useAlerts, type ToastItem } from "../store/alerts";
 
 export function ToastStack() {
   const toasts = useAlerts((s) => s.toasts);
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+    <div className="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
       {toasts.map((t) => (
         <Toast key={t.id} toast={t} />
       ))}
     </div>
   );
 }
+
+const TONE: Record<ToastItem["type"], { ring: string; bg: string; Icon: React.ComponentType<{ className?: string }> }> = {
+  NEW_ORDER: {
+    ring: "ring-emerald-200",
+    bg: "bg-emerald-50 text-emerald-700",
+    Icon: HiOutlineBell,
+  },
+  PAYMENT_SUBMITTED: {
+    ring: "ring-amber-200",
+    bg: "bg-amber-50 text-amber-700",
+    Icon: HiOutlineCheckCircle,
+  },
+  INFO: {
+    ring: "ring-slate-200",
+    bg: "bg-slate-100 text-slate-600",
+    Icon: HiOutlineInformationCircle,
+  },
+};
 
 function Toast({ toast }: { toast: ToastItem }) {
   const dismiss = useAlerts((s) => s.dismiss);
@@ -20,16 +45,15 @@ function Toast({ toast }: { toast: ToastItem }) {
     return () => clearTimeout(timer);
   }, [toast.id, dismiss]);
 
-  const isOrder = toast.type === "NEW_ORDER";
+  const tone = TONE[toast.type] ?? TONE.INFO;
+  const Icon = tone.Icon;
   return (
     <div
-      className={`rounded-2xl shadow-lg border p-3 bg-white animate-[fadeIn_.2s_ease-out] ${
-        isOrder ? "border-emerald-300" : "border-slate-200"
-      }`}
+      className={`pointer-events-auto rounded-2xl bg-white p-3.5 shadow-lg ring-1 ${tone.ring} animate-slide-up`}
     >
       <div className="flex items-start gap-3">
-        <div className={`text-xl ${isOrder ? "" : "opacity-70"}`}>
-          {isOrder ? "🛎️" : "ℹ️"}
+        <div className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${tone.bg}`}>
+          <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-900 text-sm">{toast.title}</p>
@@ -40,17 +64,18 @@ function Toast({ toast }: { toast: ToastItem }) {
             <Link
               to={toast.link}
               onClick={() => dismiss(toast.id)}
-              className="inline-block mt-1 text-xs text-brand-700 font-medium"
+              className="mt-1.5 inline-flex items-center gap-1 text-xs text-brand-700 font-semibold hover:text-brand-800"
             >
-              View →
+              View order <HiArrowRight className="w-3 h-3" />
             </Link>
           )}
         </div>
         <button
           onClick={() => dismiss(toast.id)}
-          className="text-slate-400 hover:text-slate-700 text-lg leading-none"
+          aria-label="Dismiss"
+          className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1 transition"
         >
-          ×
+          <HiOutlineXMark className="w-4 h-4" />
         </button>
       </div>
     </div>

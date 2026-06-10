@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import {
+  HiOutlineArrowLeft,
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineShoppingCart,
+  HiOutlineBolt,
+  HiOutlineCheckCircle,
+} from "react-icons/hi2";
 import { getProduct } from "../lib/catalogApi";
 import { useCart } from "../store/cart";
 import { ImageCarousel } from "../components/ImageCarousel";
@@ -20,8 +27,8 @@ export default function ProductDetailPage() {
     enabled: !!productId,
   });
 
-  if (isLoading) return <p className="p-4 text-tg-hint">Loading…</p>;
-  if (!product) return <p className="p-4 text-tg-hint">Product not found.</p>;
+  if (isLoading) return <p className="p-6 text-tg-hint">Loading…</p>;
+  if (!product) return <p className="p-6 text-tg-hint">Product not found.</p>;
 
   function addToCart() {
     if (!product) return;
@@ -42,51 +49,71 @@ export default function ProductDetailPage() {
     navigate(withSearch("/cart"));
   }
 
+  const oos = product.in_stock === 0;
+
   return (
-    <div>
-      <div className="px-3 py-2">
-        <Link to={withSearch("/")} className="text-tg-link text-sm">
-          ← Back
-        </Link>
-      </div>
+    <div className="pb-32 animate-fade-in">
+      {/* Back button overlay */}
+      <Link
+        to={withSearch("/")}
+        className="absolute top-3 left-3 z-10 w-10 h-10 rounded-full bg-white/80 backdrop-blur grid place-items-center text-slate-700 shadow-sm active:scale-95"
+      >
+        <HiOutlineArrowLeft className="w-5 h-5" />
+      </Link>
+
       <ImageCarousel urls={product.image_urls} alt={product.title} />
-      <div className="px-4 py-3">
-        <h1 className="text-xl font-semibold">{product.title}</h1>
-        <p className="text-2xl font-bold mt-1">
-          {product.base_price ? `ETB ${product.base_price}` : "Ask for price"}
-        </p>
-        {product.in_stock === 0 ? (
-          <p className="text-sm text-red-600 mt-1">Out of stock</p>
-        ) : (
-          <p className="text-xs text-tg-hint mt-1">{product.in_stock} in stock</p>
-        )}
+
+      <div className="px-4 pt-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-tg-text leading-tight">{product.title}</h1>
+            {oos ? (
+              <span className="chip bg-red-100 text-red-700 mt-2">Sold out</span>
+            ) : (
+              <span className="chip bg-emerald-100 text-emerald-700 mt-2">
+                <HiOutlineCheckCircle className="w-3.5 h-3.5" /> {product.in_stock} in stock
+              </span>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-brand-700 leading-none">
+              {product.base_price ? `ETB ${product.base_price}` : "Ask"}
+            </p>
+          </div>
+        </div>
+
         {product.description && (
-          <p className="text-sm mt-3 whitespace-pre-wrap">{product.description}</p>
+          <div className="card card-pad mt-2 animate-slide-up">
+            <p className="text-xs uppercase tracking-wider text-tg-hint font-semibold mb-1.5">
+              About
+            </p>
+            <p className="text-sm whitespace-pre-wrap text-tg-text leading-relaxed">
+              {product.description}
+            </p>
+          </div>
         )}
       </div>
 
       {/* Sticky bottom actions */}
-      <div className="fixed bottom-16 inset-x-0 px-4 py-3 bg-tg-bg border-t border-black/10 grid grid-cols-3 gap-2">
-        <button
-          onClick={() => setChatOpen(true)}
-          className="py-3 rounded-xl bg-tg-secondaryBg text-sm font-medium"
-        >
-          💬 Ask
-        </button>
-        <button
-          onClick={addToCart}
-          disabled={product.in_stock === 0}
-          className="py-3 rounded-xl bg-tg-secondaryBg text-sm font-medium disabled:opacity-50"
-        >
-          + Cart
-        </button>
-        <button
-          onClick={buyNow}
-          disabled={product.in_stock === 0}
-          className="py-3 rounded-xl bg-tg-button text-tg-buttonText text-sm font-semibold disabled:opacity-50"
-        >
-          Buy now
-        </button>
+      <div className="fixed bottom-[68px] inset-x-0 z-30 px-4 py-3 bg-tg-bg/95 backdrop-blur-xl border-t border-black/5">
+        <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="btn-secondary py-3 text-xs sm:text-sm"
+          >
+            <HiOutlineChatBubbleLeftRight className="w-4 h-4" /> Ask
+          </button>
+          <button
+            onClick={addToCart}
+            disabled={oos}
+            className="btn-secondary py-3 text-xs sm:text-sm"
+          >
+            <HiOutlineShoppingCart className="w-4 h-4" /> Cart
+          </button>
+          <button onClick={buyNow} disabled={oos} className="btn-primary py-3 text-xs sm:text-sm">
+            <HiOutlineBolt className="w-4 h-4" /> Buy now
+          </button>
+        </div>
       </div>
 
       {chatOpen && (
